@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hit & Blow - Browser Game</title>
+  <style>
+    :root{
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted:#5b6475;
+      --accent:#2563eb;
+      --accent-2:#1d4ed8;
+      --border:#e5e7eb;
+      --success:#059669;
+      --error:#dc2626;
+      --shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+    .dark{
+      --bg: #0b1020;
+      --card: #0f172a;
+      --text: #e5e7eb;
+      --muted:#9aa4b2;
+      --accent:#60a5fa;
+      --accent-2:#3b82f6;
+      --border:#1f2937;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color:var(--text);
+      line-height:1.6;
+    }
+    .wrap{max-width:920px;margin:40px auto;padding:0 20px;}
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      padding:24px;
+    }
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    h1{font-size:clamp(20px, 2.2vw, 28px);margin:0;font-weight:800;letter-spacing:.2px}
+    .sub{color:var(--muted);font-size:14px;margin:6px 0 0}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0 10px}
+    label{font-weight:600;font-size:14px}
+    .select, .input, .btn{
+      appearance:none;border:1px solid var(--border);background:#fff0;color:var(--text);
+      padding:10px 12px;border-radius:12px;outline:none;transition:.15s ease;
+    }
+    .select, .input{background:var(--card)}
+    .input{font-size:18px;letter-spacing:.12em;width:200px;text-align:center}
+    .btn{background:var(--accent);color:#fff;border-color:transparent;font-weight:700;cursor:pointer}
+    .btn:hover{background:var(--accent-2)}
+    .btn.secondary{background:transparent;color:var(--text);border-color:var(--border)}
+    .btn.secondary:hover{border-color:var(--accent);color:var(--accent)}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600}
+    .switch .dot{width:38px;height:22px;border-radius:999px;background:var(--border);position:relative;transition:.2s}
+    .switch .dot::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--text);transition:.2s}
+    .dark .switch .dot{background:#1e293b}
+    .dark .switch .dot::after{transform:translateX(16px)}
+    .help{font-size:14px;color:var(--muted);border:1px dashed var(--border);padding:10px 12px;border-radius:12px;margin:10px 0 14px}
+    .status{font-weight:700;margin:8px 0 16px}
+    table{width:100%;border-collapse:collapse;border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+    thead th{background:#f1f5ff;padding:10px 8px;text-align:left;font-size:14px}
+    tbody td{padding:10px 8px;border-top:1px solid var(--border);font-family: ui-monospace, SFMono-Regular, Menlo, monospace}
+    tbody tr:hover{background:#f7faff}
+    td.idx{width:56px;color:var(--muted);font-weight:700}
+    td.hit, td.blow{font-weight:800}
+    .badges{display:flex;gap:8px;flex-wrap:wrap}
+    .badge{font-size:12px;padding:.2rem .55rem;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--muted)}
+    .msg{padding:12px 14px;border-radius:12px;border:1px solid var(--border);margin:12px 0 0}
+    .msg.info{background:#f6f9ff;border-color:#cfe0ff}
+    .msg.success{background:#f1fff7;border-color:#b8f3d1;font-weight:800}
+    .msg.error{background:#fff5f5;border-color:#ffc9c9}
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:12px;flex-wrap:wrap}
+    .small{color:var(--muted);font-size:13px}
+    .spacer{flex:1}
+    @media (max-width:560px){
+      .input{width:100%}
+      .controls .btn{flex:1}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div>
+          <h1>Hit & Blow (数当て)</h1>
+          <p class="sub">数字を推理して Hit (桁も位置も一致) と Blow (数字は存在するが位置が違う) を手がかりに答えを当てよう。</p>
+        </div>
+        <button id="themeSwitch" class="switch" aria-label="テーマ切替">
+          <span>テーマ</span><span class="dot" aria-hidden="true"></span>
+        </button>
+      </header>
+
+      <div class="help">
+        ルール: 初期設定は 4桁・重複なし。例: 答えが 1234 のとき、予想 1243 は「2 Hit / 2 Blow」です。
+      </div>
+
+      <div class="controls">
+        <label>桁数
+          <select id="length" class="select" title="桁数">
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+        <label class="row" style="gap:8px">
+          <input type="checkbox" id="allowDupes"> 重複を許可
+        </label>
+        <button id="newGame" class="btn secondary">新しく始める</button>
+        <div class="spacer"></div>
+        <div class="badges">
+          <span class="badge" id="badge-len">桁数: 4</span>
+          <span class="badge" id="badge-dup">重複: なし</span>
+        </div>
+      </div>
+
+      <form id="guessForm" class="row" autocomplete="off">
+        <label for="guessInput" style="display:none">予想</label>
+        <input id="guessInput" class="input" inputmode="numeric" pattern="\d*" placeholder="数字を入力 (例 0123)" aria-label="予想を入力" />
+        <button id="guessBtn" class="btn" type="submit">判定</button>
+      </form>
+
+      <div id="status" class="status" aria-live="polite">ゲーム開始</div>
+      <div id="result" class="msg info" role="status" aria-live="assertive" style="display:none"></div>
+
+      <table id="history">
+        <thead>
+          <tr><th style="width:56px">#</th><th>予想</th><th>Hit</th><th>Blow</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <footer>
+        <button id="copyBtn" class="btn secondary" type="button" disabled>結果をコピー</button>
+        <span class="small">Enterで判定/新規ゲームでリセット。先頭の0も有効です。</span>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    function $(s){return document.querySelector(s);}
+    var lengthEl = $('#length');
+    var allowEl = $('#allowDupes');
+    var newBtn = $('#newGame');
+    var form = $('#guessForm');
+    var input = $('#guessInput');
+    var histBody = $('#history tbody');
+    var resultEl = $('#result');
+    var statusEl = $('#status');
+    var copyBtn = $('#copyBtn');
+    var bLen = $('#badge-len');
+    var bDup = $('#badge-dup');
+    var themeSwitch = $('#themeSwitch');
+
+    var secret = [];
+    var startTime = null;
+    var finished = false;
+    var attempts = 0;
+    var rafId = null;
+
+    function rand(n){ return Math.floor(Math.random() * n); }
+
+    function genSecret(len, allowDupes){
+      var out = [];
+      if(allowDupes){
+        for(var i=0; i<len; i++) out.push(rand(10));
+      }else{
+        var pool = [];
+        for(var k=0;k<10;k++) pool.push(k);
+        for(var j=0; j<len; j++){
+          var idx = rand(pool.length);
+          out.push(pool[idx]);
+          pool.splice(idx,1);
+        }
+      }
+      return out;
+    }
+
+    function padStart(str, targetLength, padString){
+      while(str.length < targetLength){ str = padString + str; }
+      return str;
+    }
+
+    function formatTime(ms){
+      var sec = Math.floor(ms/1000);
+      var m = Math.floor(sec/60);
+      var s = sec % 60;
+      return m + ":" + padStart(String(s), 2, "0");
+    }
+
+    function updateStatus(){
+      if(!startTime) return;
+      var elapsed = performance.now() - startTime;
+      statusEl.textContent = "試行回数: " + attempts + " ｜ 経過時間: " + formatTime(elapsed);
+      if(!finished) rafId = requestAnimationFrame(updateStatus);
+    }
+
+    function setBadges(){
+      bLen.textContent = "桁数: " + secret.length;
+      bDup.textContent = "重複: " + (allowEl.checked ? "あり" : "なし");
+    }
+
+    function reset(){
+      var len = parseInt(lengthEl.value,10);
+      if(!allowEl.checked && len>10){ lengthEl.value = 10; }
+      secret = genSecret(parseInt(lengthEl.value,10), allowEl.checked);
+      attempts = 0;
+      startTime = performance.now();
+      finished = false;
+      histBody.innerHTML = "";
+      resultEl.style.display = "none";
+      resultEl.className = "msg info";
+      input.value = "";
+      input.maxLength = String(lengthEl.value);
+      try{ input.focus({preventScroll:true}); }catch(e){ input.focus(); }
+      copyBtn.disabled = true;
+      setBadges();
+      if(rafId) cancelAnimationFrame(rafId);
+      updateStatus();
+    }
+
+    function validateGuess(str){
+      var len = parseInt(lengthEl.value,10);
+      if(str.length !== len) return "桁数が違います (" + len + "桁)";
+      if(!/^\d+$/.test(str)) return "数字のみで入力してください";
+      if(!allowEl.checked){
+        var seen = {};
+        for(var i=0;i<str.length;i++){ seen[str[i]] = true; }
+        var unique = Object.keys(seen).length;
+        if(unique !== len) return "同じ数字は使えません (重複なし)";
+      }
+      return null;
+    }
+
+    function countHB(guessArr, secretArr){
+      var hits = 0;
+      for(var i=0;i<guessArr.length;i++){
+        if(guessArr[i] === secretArr[i]) hits++;
+      }
+      function count(arr){
+        var m = new Array(10).fill(0);
+        for(var i=0;i<arr.length;i++){ m[arr[i]]++; }
+        return m;
+      }
+      var cg = count(guessArr), cs = count(secretArr);
+      var matches = 0;
+      for(var d=0; d<10; d++) matches += Math.min(cg[d], cs[d]);
+      var blows = matches - hits;
+      return {hits:hits, blows:blows};
+    }
+
+    function addHistoryRow(num, guessStr, hits, blows){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td class="idx">'+num+'</td><td class="guess">'+guessStr+'</td><td class="hit">'+hits+'</td><td class="blow">'+blows+'</td>';
+      histBody.prepend(tr);
+    }
+
+    newBtn.addEventListener('click', reset);
+
+    lengthEl.addEventListener('change', function(){
+      input.maxLength = String(lengthEl.value);
+      if(input.value.length > lengthEl.value) input.value = input.value.slice(0, lengthEl.value);
+      reset();
+    });
+    allowEl.addEventListener('change', reset);
+
+    input.addEventListener('input', function(){
+      var len = parseInt(lengthEl.value,10);
+      input.value = input.value.replace(/[^\d]/g,'').slice(0, len);
+    });
+
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      if(finished) return;
+      var guess = input.value.trim();
+      var err = validateGuess(guess);
+      if(err){
+        resultEl.textContent = err;
+        resultEl.className = 'msg error';
+        resultEl.style.display = 'block';
+        input.focus();
+        return;
+      }
+      attempts++;
+      var guessArr = guess.split('').map(function(c){return parseInt(c,10);});
+      var hb = countHB(guessArr, secret);
+      addHistoryRow(attempts, guess, hb.hits, hb.blows);
+
+      if(hb.hits === secret.length){
+        finished = true;
+        var elapsed = performance.now() - startTime;
+        resultEl.innerHTML = '正解! <strong>'+guess+'</strong> ('+attempts+'手, '+formatTime(elapsed)+')';
+        resultEl.className = 'msg success';
+        resultEl.style.display = 'block';
+        copyBtn.disabled = false;
+      }else{
+        resultEl.textContent = hb.hits + ' Hit / ' + hb.blows + ' Blow';
+        resultEl.className = 'msg info';
+        resultEl.style.display = 'block';
+      }
+      input.value = '';
+      try{ input.focus({preventScroll:true}); }catch(e){ input.focus(); }
+    });
+
+    document.addEventListener('keydown', function(e){
+      var tag = e.target.tagName;
+      if(e.key === 'Enter' && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA'){
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    copyBtn.addEventListener('click', function(){
+      var elapsed = performance.now() - startTime;
+      var text = [
+        'Hit & Blow クリア',
+        '桁数: ' + secret.length,
+        '重複: ' + (allowEl.checked ? 'あり' : 'なし'),
+        '試行回数: ' + attempts,
+        '経過時間: ' + formatTime(elapsed),
+        '#hitandblow'
+      ].join('\n');
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){
+          copyBtn.textContent = 'コピーしました';
+          setTimeout(function(){ copyBtn.textContent = '結果をコピー'; }, 1500);
+        }, function(){
+          alert('コピーに失敗しました。手動で選択してください。');
+        });
+      }else{
+        alert('クリップボードAPIが使えません。手動でコピーしてください。');
+      }
+    });
+
+    themeSwitch.addEventListener('click', function(){
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('hb-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    });
+    (function initTheme(){
+      var saved = localStorage.getItem('hb-theme');
+      if(saved === 'dark') document.documentElement.classList.add('dark');
+    })();
+
+    reset();
+  })();
+  </script>
+</body>
+</html>
