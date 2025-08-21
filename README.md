@@ -42,4 +42,4 @@
 ## 📂 ローカルで遊ぶ方法
 1. このリポジトリをクローン  
    ```bash
-   git clone https://github.com/r-taira622/gemini-hit-and-blow.git
+   git clone https://github.com/r-taira622/chat-gpt5-hit-and-blow.git
